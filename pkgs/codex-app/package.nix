@@ -2,6 +2,7 @@
   lib,
   appimageTools,
   fetchurl,
+  makeWrapper,
 }:
 
 let
@@ -20,7 +21,9 @@ in
 appimageTools.wrapType2 {
   inherit pname version src;
 
-  extraInstallCommands = ''
+  nativeBuildInputs = lib.lists.singleton makeWrapper;
+
+  extraInstallCommands = /* bash */ ''
     if [ -d "${appimageContents}/usr/share/icons" ]; then
       mkdir -p "$out/share"
       cp -r "${appimageContents}/usr/share/icons" "$out/share/"
@@ -36,10 +39,15 @@ appimageTools.wrapType2 {
     for desktop_file in "$out"/share/applications/*.desktop; do
       [ -e "$desktop_file" ] || continue
       substituteInPlace "$desktop_file" \
-        --replace "Exec=AppRun" "Exec=${pname}" \
-        --replace "Exec=codex" "Exec=${pname}" \
-        --replace "Exec=codex-app" "Exec=${pname}"
+        --replace-fail "Exec=/usr/bin/env ELECTRON_OZONE_PLATFORM_HINT=x11 Codex --ozone-platform=x11 %u" \
+          "Exec=${pname} %u"
     done
+
+    mv "$out/bin/${pname}" "$out/bin/.${pname}-wrapped"
+    makeWrapper "$out/bin/.${pname}-wrapped" "$out/bin/${pname}" \
+      --add-flags "--ozone-platform=x11" \
+      --add-flags "--use-gl=angle" \
+      --add-flags "--use-angle=swiftshader"
   '';
 
   meta = {
