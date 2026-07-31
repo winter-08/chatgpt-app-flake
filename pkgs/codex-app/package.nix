@@ -7,11 +7,11 @@
 
 let
   pname = "codex-app";
-  version = "26.721.41059";
+  version = "26.721.81911";
 
   src = fetchurl {
-    url = "https://github.com/am-will/codex-app/releases/download/v26.721.41059/codex-app-linux-x64-v26.721.41059.AppImage";
-    hash = "sha256-qBBVrsRQ/pY2bCO/IudnChltzddU3XbvhP9TbYfSkTg=";
+    url = "https://github.com/am-will/codex-app/releases/download/v26.721.81911/codex-app-linux-x64-v26.721.81911.AppImage";
+    hash = "sha256-zGdCaF/TNrXA4gF26o4/pSV3QtXIJNKS1kWXT5VYOoY=";
   };
 
   appimageContents = appimageTools.extractType2 {
