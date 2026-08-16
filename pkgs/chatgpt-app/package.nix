@@ -136,12 +136,15 @@ stdenv.mkDerivation {
     # Electron's Node diagnostic report parser traps if autoPatchelf rewrites
     # this executable's unusual ELF string table. Patch only the interpreter
     # and runpath, without autoPatchelf's dependency rewriting or shrinking.
-    find "$out/lib/chatgpt" -type f \( -perm -0100 -o -name '*.so*' \) -print0 \
+    find "$out/lib/chatgpt" -type f \
+      \( -perm -0100 -o -name '*.so*' -o -name '*.node' \) -print0 \
       | while IFS= read -r -d "" file; do
+          if ! patchelf --print-needed "$file" > /dev/null 2>&1; then
+            continue
+          fi
+
           if patchelf --print-interpreter "$file" > /dev/null 2>&1; then
             patchelf --set-interpreter "$(cat "$NIX_CC/nix-support/dynamic-linker")" "$file"
-          elif [[ "$file" != *.so* ]]; then
-            continue
           fi
 
           patchelf --set-rpath "${libraryPath}:$out/lib/chatgpt" "$file"
