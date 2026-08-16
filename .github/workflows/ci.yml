@@ -14,4 +14,4 @@ jobs:
       - uses: actions/checkout@v6
       - uses: DeterminateSystems/nix-installer-action@v22
       - run: nix flake check --print-build-logs
-      - run: nix build .#codex-app --print-build-logs
+      - run: nix build .#chatgpt-app --print-build-logs

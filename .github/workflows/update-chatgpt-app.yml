@@ -1,4 +1,4 @@
-name: Update codex-app
+name: Update chatgpt-app
 
 on:
   workflow_dispatch:
@@ -16,35 +16,35 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          token: ${{ secrets.CODEX_APP_UPDATE_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.CHATGPT_APP_UPDATE_TOKEN || secrets.GITHUB_TOKEN }}
 
       - uses: DeterminateSystems/nix-installer-action@v22
 
       - name: Update package metadata
-        run: nix run .#update-codex-app
+        run: nix run .#update-chatgpt-app
 
       - name: Check flake
         run: nix flake check --print-build-logs
 
       - name: Build package
-        run: nix build .#codex-app --print-build-logs
+        run: nix build .#chatgpt-app --print-build-logs
 
       - name: Create pull request
         id: cpr
         uses: peter-evans/create-pull-request@v8
         with:
-          token: ${{ secrets.CODEX_APP_UPDATE_TOKEN || secrets.GITHUB_TOKEN }}
-          branch: updates/codex-app
+          token: ${{ secrets.CHATGPT_APP_UPDATE_TOKEN || secrets.GITHUB_TOKEN }}
+          branch: updates/chatgpt-app
           delete-branch: true
-          commit-message: "chore: update codex-app"
-          title: "chore: update codex-app"
+          commit-message: "chore: update chatgpt-app"
+          title: "chore: update chatgpt-app"
           body: |
-            Updates the packaged Linux AppImage from the latest `am-will/codex-app` release.
+            Updates the packaged Linux app from the latest official ChatGPT deb assets.
           labels: dependencies, automated
 
       - name: Enable auto-merge
         if: steps.cpr.outputs.pull-request-number != ''
         env:
-          GH_TOKEN: ${{ secrets.CODEX_APP_UPDATE_TOKEN || secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.CHATGPT_APP_UPDATE_TOKEN || secrets.GITHUB_TOKEN }}
           PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
         run: gh pr merge --auto --squash "$PR_URL"

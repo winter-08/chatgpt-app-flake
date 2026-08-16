@@ -1,0 +1,41 @@
+set -euo pipefail
+
+package_file="${1:-pkgs/chatgpt-app/package.nix}"
+base_url="${CHATGPT_APP_BASE_URL:-https://persistent.oaistatic.com/codex-app-prod/linux/deb/latest}"
+
+workdir="$(mktemp -d)"
+trap 'rm -rf "$workdir"' EXIT
+
+# The version only lives inside the deb's control archive, which sits at the
+# front of the ar container, so a small range request is enough to read it.
+deb_version() {
+  local arch="$1" dir="$workdir/$1"
+  mkdir -p "$dir"
+  curl -fsSL -r 0-2097151 "$base_url/chatgpt_${arch}.deb" -o "$dir/head.deb"
+  (cd "$dir" && ar x head.deb control.tar.xz && tar -xf control.tar.xz)
+  awk '/^Version:/ {print $2}' "$dir/control"
+}
+
+version="$(deb_version amd64)"
+arm64_version="$(deb_version arm64)"
+
+if [ -z "$version" ]; then
+  echo "Could not determine version from $base_url/chatgpt_amd64.deb" >&2
+  exit 1
+fi
+
+if [ "$version" != "$arm64_version" ]; then
+  echo "amd64 ($version) and arm64 ($arm64_version) versions differ; upstream is mid-release, try again later" >&2
+  exit 1
+fi
+
+amd64_hash="$(nix store prefetch-file --json "$base_url/chatgpt_amd64.deb" | jq -r '.hash')"
+arm64_hash="$(nix store prefetch-file --json "$base_url/chatgpt_arm64.deb" | jq -r '.hash')"
+
+VERSION="$version" AMD64_HASH="$amd64_hash" ARM64_HASH="$arm64_hash" perl -0pi -e '
+  s/version = "[^"]+";/version = "$ENV{VERSION}";/;
+  s/(chatgpt_amd64\.deb";\s*hash = ")[^"]+/$1$ENV{AMD64_HASH}/;
+  s/(chatgpt_arm64\.deb";\s*hash = ")[^"]+/$1$ENV{ARM64_HASH}/;
+' "$package_file"
+
+echo "Updated $package_file to v${version}"
