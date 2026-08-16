@@ -3,8 +3,8 @@
   stdenv,
   fetchurl,
   dpkg,
-  autoPatchelfHook,
   makeWrapper,
+  patchelf,
   wrapGAppsHook3,
   alsa-lib,
   at-spi2-atk,
@@ -57,22 +57,8 @@ let
       hash = "sha256-br6mgbHklNIYoZn2OLS8iG6U4UWN1hB5seOQpvuY/dI=";
     };
   };
-in
-stdenv.mkDerivation {
-  inherit pname version;
 
-  src =
-    sources.${stdenv.hostPlatform.system}
-      or (throw "chatgpt-app: unsupported system ${stdenv.hostPlatform.system}");
-
-  nativeBuildInputs = [
-    dpkg
-    autoPatchelfHook
-    makeWrapper
-    wrapGAppsHook3
-  ];
-
-  buildInputs = [
+  libraries = [
     alsa-lib
     at-spi2-atk
     at-spi2-core
@@ -103,7 +89,7 @@ stdenv.mkDerivation {
   ];
 
   # dlopen'd at runtime, not linked at load time.
-  runtimeDependencies = [
+  runtimeLibraries = [
     (lib.getLib systemd)
     libglvnd
     libnotify
@@ -111,21 +97,27 @@ stdenv.mkDerivation {
     libusb1
   ];
 
-  # Qt shims stay unused unless a Qt platform is detected, and the musl
-  # variants of bundled napi prebuilds are never loaded on a glibc system.
-  autoPatchelfIgnoreMissingDeps = [
-    "libQt5Core.so.5"
-    "libQt5Gui.so.5"
-    "libQt5Widgets.so.5"
-    "libQt6Core.so.6"
-    "libQt6Gui.so.6"
-    "libQt6Widgets.so.6"
-    "libc.musl-x86_64.so.1"
-    "libc.musl-aarch64.so.1"
+  libraryPath = lib.makeLibraryPath (libraries ++ runtimeLibraries);
+in
+stdenv.mkDerivation {
+  inherit pname version;
+
+  src =
+    sources.${stdenv.hostPlatform.system}
+      or (throw "chatgpt-app: unsupported system ${stdenv.hostPlatform.system}");
+
+  nativeBuildInputs = [
+    dpkg
+    makeWrapper
+    patchelf
+    wrapGAppsHook3
   ];
+
+  buildInputs = libraries;
 
   dontConfigure = true;
   dontBuild = true;
+  dontPatchELF = true;
   dontWrapGApps = true;
 
   unpackPhase = ''
@@ -140,6 +132,21 @@ stdenv.mkDerivation {
     cp -r usr/lib usr/share "$out/"
     # Upstream launcher script; replaced by the wrapper in $out/bin.
     rm "$out/lib/chatgpt/codex-launcher"
+
+    # Electron's Node diagnostic report parser traps if autoPatchelf rewrites
+    # this executable's unusual ELF string table. Patch only the interpreter
+    # and runpath, without autoPatchelf's dependency rewriting or shrinking.
+    find "$out/lib/chatgpt" -type f \( -perm -0100 -o -name '*.so*' \) -print0 \
+      | while IFS= read -r -d "" file; do
+          if patchelf --print-interpreter "$file" > /dev/null 2>&1; then
+            patchelf --set-interpreter "$(cat "$NIX_CC/nix-support/dynamic-linker")" "$file"
+          elif [[ "$file" != *.so* ]]; then
+            continue
+          fi
+
+          patchelf --set-rpath "${libraryPath}:$out/lib/chatgpt" "$file"
+        done
+
     runHook postInstall
   '';
 
