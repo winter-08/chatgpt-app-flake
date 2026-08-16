@@ -139,7 +139,11 @@ stdenv.mkDerivation {
     find "$out/lib/chatgpt" -type f \
       \( -perm -0100 -o -name '*.so*' -o -name '*.node' \) -print0 \
       | while IFS= read -r -d "" file; do
-          if ! patchelf --print-needed "$file" > /dev/null 2>&1; then
+          # Skip static binaries, including static-PIE ones like
+          # resources/codex that have a DYNAMIC section but no DT_NEEDED:
+          # they need no interpreter or runpath, and patchelf's dynamic
+          # section rewrite breaks static-PIE self-relocation (SIGSEGV).
+          if [ -z "$(patchelf --print-needed "$file" 2> /dev/null)" ]; then
             continue
           fi
 
