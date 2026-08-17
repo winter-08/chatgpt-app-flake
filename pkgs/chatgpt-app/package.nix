@@ -133,6 +133,34 @@ stdenv.mkDerivation {
     # Upstream launcher script; replaced by the wrapper in $out/bin.
     rm "$out/lib/chatgpt/codex-launcher"
 
+    # Node's diagnostic report (process.report.getReport, called on startup by
+    # the bundled detect-libc) does dlsym(RTLD_DEFAULT, "gnu_get_libc_version")
+    # and calls the result. This Electron is built with Clang CFI-icall, whose
+    # check only accepts targets inside the binary's own jump table -- the
+    # glibc address returned by dlsym never is, so the call traps with SIGILL
+    # on any glibc system that reaches it. Rename the .rodata dlsym string so
+    # the lookup fails and the code takes its graceful NULL path; the .dynstr
+    # copy (the real dynamic import, resolved via PLT) must stay intact.
+    chatgptBin="$out/lib/chatgpt/ChatGPT"
+    read -r dynstrOff dynstrSize < <(
+      readelf -SW "$chatgptBin" \
+        | sed 's/\[ *[0-9]*\]//' \
+        | awk '$1 == ".dynstr" { print strtonum("0x" $4), strtonum("0x" $5) }'
+    )
+    [ -n "$dynstrOff" ] || { echo "chatgpt-app: .dynstr not found in ChatGPT" >&2; exit 1; }
+    patchedLibcProbe=0
+    while read -r off; do
+      if (( off < dynstrOff || off >= dynstrOff + dynstrSize )); then
+        printf 'nix_get_libc_version' \
+          | dd of="$chatgptBin" bs=1 seek="$off" conv=notrunc status=none
+        patchedLibcProbe=$(( patchedLibcProbe + 1 ))
+      fi
+    done < <(grep -aob 'gnu_get_libc_version' "$chatgptBin" | cut -d: -f1)
+    if (( patchedLibcProbe == 0 )); then
+      echo "chatgpt-app: no gnu_get_libc_version dlsym string found to patch" >&2
+      exit 1
+    fi
+
     # Electron's Node diagnostic report parser traps if autoPatchelf rewrites
     # this executable's unusual ELF string table. Patch only the interpreter
     # and runpath, without autoPatchelf's dependency rewriting or shrinking.
