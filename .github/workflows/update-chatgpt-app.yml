@@ -47,4 +47,4 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.CHATGPT_APP_UPDATE_TOKEN || secrets.GITHUB_TOKEN }}
           PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
-        run: gh pr merge --auto --squash "$PR_URL"
+        run: bash scripts/enable-update-auto-merge

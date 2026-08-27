@@ -1,0 +1,21 @@
+set -euo pipefail
+
+: "${GITHUB_REPOSITORY:?GITHUB_REPOSITORY must be set}"
+: "${PR_URL:?PR_URL must be set}"
+
+# A disabled repository setting is not a failure to create the update PR.
+# Keep API and merge errors fatal so authentication or policy issues stay visible.
+allow_auto_merge="$(gh api "repos/$GITHUB_REPOSITORY" --jq '.allow_auto_merge')"
+
+case "$allow_auto_merge" in
+  true)
+    gh pr merge --auto --squash "$PR_URL"
+    ;;
+  false)
+    echo "::warning::Auto-merge is disabled for $GITHUB_REPOSITORY. Leaving $PR_URL open for manual review and merge. To enable automatic merging, turn on Settings > General > Pull Requests > Allow auto-merge."
+    ;;
+  *)
+    echo "Unexpected allow_auto_merge value: $allow_auto_merge" >&2
+    exit 1
+    ;;
+esac

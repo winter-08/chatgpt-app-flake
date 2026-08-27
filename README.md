@@ -42,10 +42,25 @@ Upstream only publishes mutable `latest` URLs (no versioned paths), so the
 package pins the deb hashes and relies on automation to keep them fresh.
 `.github/workflows/update-chatgpt-app.yml` checks the upstream assets on a
 daily schedule, updates `pkgs/chatgpt-app/package.nix`, runs `nix flake check`
-and `nix build .#chatgpt-app`, opens a PR, and enables squash auto-merge for
-that PR. If upstream releases and the pinned hash goes stale, builds fail with
-a hash mismatch until the update PR lands.
+and `nix build .#chatgpt-app`, opens a PR, and enables squash auto-merge when
+the repository allows it. If auto-merge is disabled, the workflow succeeds
+with a warning and leaves the PR open for manual review and merge. If upstream
+releases and the pinned hash goes stale, builds fail with a hash mismatch until
+the update PR lands.
 
-If branch protection requires CI to run on bot-authored PRs, set a repository
-secret named `CHATGPT_APP_UPDATE_TOKEN` with permissions to create PRs and merge
-them. Without that secret, the workflow falls back to `GITHUB_TOKEN`.
+To enable automatic merging, turn on **Settings > General > Pull Requests >
+Allow auto-merge** in the repository. Configure required checks or reviews on
+the target branch if they must pass before merging.
+
+For PR CI to run without manual approval, set a repository secret named
+`CHATGPT_APP_UPDATE_TOKEN` to a personal access token or GitHub App token with
+permissions to create PRs and merge them. Without that secret, the workflow
+falls back to `GITHUB_TOKEN`; GitHub requires a user with write access to
+approve the resulting PR workflow runs. See GitHub's
+[workflow trigger documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow).
+
+The auto-merge handling can be tested locally without GitHub access:
+
+```sh
+bash tests/enable-update-auto-merge.sh
+```

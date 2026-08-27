@@ -12,6 +12,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+      - name: Test auto-merge handling
+        run: bash tests/enable-update-auto-merge.sh
       - uses: DeterminateSystems/nix-installer-action@v22
       - run: nix flake check --print-build-logs
       - run: nix build .#chatgpt-app --print-build-logs
