@@ -40,7 +40,7 @@
 
 let
   pname = "chatgpt-app";
-  version = "26.1007.21434";
+  version = "26.1007.71326";
 
   # Official Linux assets from https://learn.chatgpt.com/docs/linux/linux-app.
   # Upstream only publishes mutable "latest" URLs, so the pinned hash below is
@@ -50,11 +50,11 @@ let
   sources = {
     x86_64-linux = fetchurl {
       url = "${baseUrl}/chatgpt_amd64.deb";
-      hash = "sha256-J2tTQcPXSyYdOtUhBvf6ft3gaEHkdn/ipAy1QJmx8+0=";
+      hash = "sha256-DgBrSTFxL1qQ1M0ElyxuC1M87c39srUZRtW5NnRx9VY=";
     };
     aarch64-linux = fetchurl {
       url = "${baseUrl}/chatgpt_arm64.deb";
-      hash = "sha256-Vfrh4/sdYGmpBiDp5wc33Pi/IlVgTRV+KCzGdIobr0k=";
+      hash = "sha256-2fvYVKFSLtsrU8dVo+pez6Z7P4wDUxNAW1CWckLvugo=";
     };
   };
 
