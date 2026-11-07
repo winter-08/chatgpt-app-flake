@@ -42,25 +42,19 @@ Upstream only publishes mutable `latest` URLs (no versioned paths), so the
 package pins the deb hashes and relies on automation to keep them fresh.
 `.github/workflows/update-chatgpt-app.yml` checks the upstream assets on a
 daily schedule, updates `pkgs/chatgpt-app/package.nix`, runs `nix flake check`
-and `nix build .#chatgpt-app`, opens a PR, and enables squash auto-merge when
-the repository allows it. If auto-merge is disabled, the workflow succeeds
-with a warning and leaves the PR open for manual review and merge. If upstream
-releases and the pinned hash goes stale, builds fail with a hash mismatch until
-the update PR lands.
+and `nix build .#chatgpt-app`, and commits the result straight to `main` once
+those checks pass. If upstream releases and the pinned hash goes stale, builds
+fail with a hash mismatch until the next update lands.
 
-To enable automatic merging, turn on **Settings > General > Pull Requests >
-Allow auto-merge** in the repository. Configure required checks or reviews on
-the target branch if they must pass before merging.
+The update job pushes with `GITHUB_TOKEN`, so that push does not start a CI
+run: GitHub never triggers workflows from events created by `GITHUB_TOKEN`, to
+keep workflows from retriggering themselves. The flake check and build run
+inside the update job instead, so the pin is verified before it is committed.
 
-For PR CI to run without manual approval, set a repository secret named
-`CHATGPT_APP_UPDATE_TOKEN` to a personal access token or GitHub App token with
-permissions to create PRs and merge them. Without that secret, the workflow
-falls back to `GITHUB_TOKEN`; GitHub requires a user with write access to
-approve the resulting PR workflow runs. See GitHub's
+This is also why the workflow commits directly rather than opening a pull
+request. A PR created with `GITHUB_TOKEN` cannot start its own CI run, so the
+check sat unapproved until it expired and the PR merged on a red X anyway. To
+restore a reviewable PR flow, set a repository secret holding a personal access
+token or GitHub App token and use it for both the checkout and the PR step; see
+GitHub's
 [workflow trigger documentation](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/trigger-a-workflow#triggering-a-workflow-from-a-workflow).
-
-The auto-merge handling can be tested locally without GitHub access:
-
-```sh
-bash tests/enable-update-auto-merge.sh
-```
