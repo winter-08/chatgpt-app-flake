@@ -24,6 +24,15 @@ if [ -z "$version" ]; then
   exit 1
 fi
 
+# The version is interpolated into package.nix below, so refuse anything that
+# could close the Nix string and inject code if upstream is ever compromised.
+case "$version" in
+  *[!0-9.]*)
+    echo "Refusing unexpected version string from $base_url/chatgpt_amd64.deb: $version" >&2
+    exit 1
+    ;;
+esac
+
 if [ "$version" != "$arm64_version" ]; then
   echo "amd64 ($version) and arm64 ($arm64_version) versions differ; upstream is mid-release, try again later" >&2
   exit 1
